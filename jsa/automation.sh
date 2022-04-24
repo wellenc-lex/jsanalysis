@@ -1,52 +1,79 @@
 #!/bin/bash
 
-mkdir ../tmp
+FILENAME=$1
 
-printf "Crawl..\n"
+LINES=$(cat $FILENAME)
 
-printf $1 | timeout 100000 gospider -t 1 --concurrent 3 -d 1 --other-source --include-other-source --delay 1 --timeout 5 --sitemap --robots --blacklist eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt > ../tmp/gospider.txt
-cat ../tmp/gospider.txt | grep -vE 'https?:\/\/.*\.json' | grep -vE 'jquery|bootstrap|ga.js|watch.js|wp-embed|angular|wf\-|recaptcha|gtm.js|google|sweetalert' | grep -E 'https?:\/\/.*\.js' -o | sort -u > ../tmp/wget.txt
+mkdir /tmp
+mkdir /tmp/download/
+cd /tmp/download/
 
-## lauching wayback with a "js only" mode to reduce execution time
-printf 'Launching Gau with wayback..\n'
-printf $1 | xargs -I{} echo "{}/*&filter=mimetype:application/javascript&somevar=" | gau -providers wayback -b ttf,woff,svg,png,jpg,png,jpeg | tee ../tmp/gau.txt >/dev/null   ##gau
-printf $1 | xargs -I{} echo "{}/*&filter=mimetype:text/javascript&somevar=" | gau -providers wayback -b ttf,woff,svg,png,jpg,png,jpeg | tee -a ../tmp/gau.txt >/dev/null   ##gau
+mkdir $2
 
-## if js file parsed from wayback didn't return 200 live, we are generating a URL to see a file's content on wayback's server;
-## it's useless for endpoints discovery but there is a point to search for credentials in the old content; that's what we'll do
-## only wayback as of now
+task(){
 
-printf "Fetching URLs for 404 js files from wayback..\n"
-cat ../tmp/gau.txt | cut -d '?' -f1 | cut -d '#' -f1 | sort -u | parallel --gnu -j 5 "automation/404_js_wayback.sh {}" | tee -a ../tmp/creds_search.txt >/dev/null
-cat ../tmp/wget.txt | cut -d '?' -f1 | cut -d '#' -f1 | sort -u | parallel --gnu -j 5 "automation/404_js_wayback.sh {}" | tee -a ../tmp/creds_search.txt >/dev/null
-## save all endpoints to the file for future processing
+	LINE=$1
+	i=$2
 
-## extracting js files from js files
-printf "Printing deep-level js files..\n"
-cat ../tmp/wget.txt | parallel --gnu --pipe -j 5 "python3 automation/js_files_extraction.py | tee -a ../tmp/wget.txt"
+	mkdir /tmp/$i
+	printf "Crawl... $LINE\n"
 
-printf "wget discovered JS files for local creds scan + webpack + api paths\n"
-mkdir ../tmp/download/
-cd ../tmp/download/ && cat ../wget.txt | parallel --gnu -j 5 "xargs wget -nc {}" #download .js files
-cat ../creds_search.txt | parallel --gnu -j 5 "xargs wget -nc {}" #download .js files
+	printf $LINE | timeout 1000 gospider -t 1 --concurrent 5 -d 1 --other-source --include-other-source --delay 1 --timeout 120 --sitemap --depth 2 --robots --blacklist eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt,mp4,avi,mpeg4,mp3,webm,ogv,gif,jpg,jpeg,png > /tmp/$i/gospider.txt
+	cat /tmp/$i/gospider.txt | grep -vE 'https?:\/\/.*\.json' | grep -vE 'jquery|bootstrap|ga.js|watch.js|wp-embed|angular|wf\-|recaptcha|gtm.js|google|sweetalert' | grep -E 'https?:\/\/.*\.js' -o | sort -u > /tmp/$i/wget.txt
 
-sed 's/$/.map/' ../wget.txt > ../wgetmap.txt
+	## lauching wayback with a "js only" mode to reduce execution time
+	printf 'Launching Gau with wayback..\n'
+	printf $LINE | xargs -I{} echo "{}/*&filter=mimetype:application/javascript&somevar=" | gau -providers wayback -b eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt,mp4,avi,mpeg4,mp3,webm,ogv,gif,jpg,jpeg,png | tee /tmp/$i/gau.txt >/dev/null   ##gau
+	printf $LINE | xargs -I{} echo "{}/*&filter=mimetype:text/javascript&somevar=" | gau -providers wayback -b eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt,mp4,avi,mpeg4,mp3,webm,ogv,gif,jpg,jpeg,png | tee -a /tmp/$i/gau.txt >/dev/null   ##gau
 
-cat ../wgetmap.txt | parallel --gnu --pipe -j 5 "xargs wget -nc" #download .js.map files
+	## if js file parsed from wayback didn't return 200 live, we are generating a URL to see a file's content on wayback's server;
+	## it's useless for endpoints discovery but there is a point to search for credentials in the old content; that's what we'll do
+	## only wayback as of now
+	chmod -R 777 /tmp/$i/
 
-mkdir /jsa/$2/
+	printf "Fetching URLs for 404 js files from wayback..\n"
+	cat /tmp/$i/gau.txt | cut -d '?' -f1 | cut -d '#' -f1 | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a /tmp/$i/creds_search.txt >/dev/null
+	cat /tmp/$i/wget.txt | cut -d '?' -f1 | cut -d '#' -f1 | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a /tmp/$i/creds_search.txt >/dev/null
+	## save all endpoints to the file for future processing
+
+	## extracting js files from js files
+	printf "Printing deep-level js files..\n"
+	cat /tmp/$i/wget.txt | parallel --gnu --pipe -j 2 "python3 /go/jsa/automation/js_files_extraction.py | tee -a /tmp/$i/wget.txt"
+
+	printf "wget discovered JS files for local creds scan + webpack + api paths\n"
+	sed 's/$/.map/' /tmp/$i/wget.txt > /tmp/$i/wgetmap.txt
+
+	cat /tmp/$i/wget.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --retry-on-host-error --tries=10 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
+	cat /tmp/$i/creds_search.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --retry-on-host-error --tries=10 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
+	cat /tmp/$i/wgetmap.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --retry-on-host-error --tries=10 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
+
+	mkdir $2
+
+	python3 /go/webpack/unwebpack_sourcemap.py --make-directory --disable-ssl-verification --detect $LINE $2/$i/webpackout
+
+	rm /tmp/$i/gau.txt
+}
+
+i=0
+for LINE in $LINES
+do   
+	echo i: $i
+	((i=i+1))
+
+	task "$LINE" "$i" & #call all domains in parallel
+	
+done
+
 pwd
-ls -la
 
-if [ -f "/jsa/shasums" ];
+if [ ! -f "/jsa/shasums" ];
 then
-    echo "shasums exists"
-else
     touch /jsa/shasums
 fi
 
 #get sha sum for each file and verify that it havnt been scaned earlier
-for filename in *; do
+for filename in *
+do
     currentfilehash=$(cat $filename | sha1sum | head -c 40)
 
 	if grep -Fxq "$currentfilehash" /jsa/shasums
@@ -57,20 +84,4 @@ for filename in *; do
 	fi    
 done
 
-find . -iname '*' -maxdepth 1 -exec python3 ../../secretfinder/SecretFinder.py -i {} -o /jsa/$2/secretfinder.html \;
-
-
-
-
-
-
-#unbeautify / jsbeautify jsa/tmp/download
-
-#divedumpster
-
-#python3 ../../linkfinder/linkfinder.py -i '*.js' -o /jsa/$2/linkfinder.html  #too much noise. prefer burp suite's linkfinder
-
-#python3 webpack/unwebpack_sourcemap.py --make-directory --disable-ssl-verification --detect $stdin tmp/webpackout
-
-
-
+trufflehog filesystem --directory=/tmp/download/ >> $2/out.txt
