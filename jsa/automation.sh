@@ -18,11 +18,13 @@ task(){
 
 	echo i: $i
 
+	sleep 3
+
 	mkdir /tmp/$i
 	printf "Crawl... $LINE\n"
 
-	printf $LINE | timeout 2200 gospider -t 1 --concurrent 1 -d 1 --other-source --include-other-source --delay 1 --timeout 160 --js=false --sitemap --depth 2 --robots --blacklist eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt,mp4,avi,mpeg4,mp3,webm,ogv,gif,jpg,jpeg,png > /tmp/$i/gospider.txt
-	cat /tmp/$i/gospider.txt | grep -vE 'https?:\/\/.*\.json' | grep -vE 'jquery|bootstrap|ga.js|watch.js|wp-embed|angular|wf\-|recaptcha|gtm.js|google|sweetalert' | grep -E 'https?:\/\/.*\.js' -o | sort -u > /tmp/$i/wget.txt
+	printf $LINE | timeout 2200 gospider -t 1 --concurrent 1 -d 1 --other-source --include-other-source --delay 2 --timeout 260 --js=false --sitemap --depth 2 --robots --blacklist eot,jpg,jpeg,gif,css,tif,tiff,png,ttf,otf,woff,woff2,ico,pdf,svg,txt,mp4,avi,mpeg4,mp3,webm,ogv,gif,jpg,jpeg,png > /tmp/$i/gospider.txt
+	cat /tmp/$i/gospider.txt | grep -vE 'https?:\/\/.*\.json' | grep -vE 'jquery|bootstrap|ga.js|watch.js|wp-embed|angular|wf\-|recaptcha|gtm.js|google|sweetalert|i18n' | grep -E 'https?:\/\/.*\.js' -o | sort -u > /tmp/$i/wget.txt
 
 	## lauching wayback with a "js only" mode to reduce execution time
 	printf 'Launching Gau with wayback..\n'
@@ -46,9 +48,9 @@ task(){
 	printf "wget discovered JS files for local creds scan + webpack + api paths\n"
 	sed 's/$/.map/' /tmp/$i/wget.txt > /tmp/$i/wgetmap.txt
 
-	cat /tmp/$i/wget.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=3 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
-	cat /tmp/$i/creds_search.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=3 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
-	cat /tmp/$i/wgetmap.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=3 --content-disposition --no-check-certificate --timeout=120 --trust-server-names
+	cat /tmp/$i/wget.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=3 --content-disposition --no-check-certificate --timeout=240 --trust-server-names
+	cat /tmp/$i/creds_search.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=5 --content-disposition --no-check-certificate --timeout=240 --trust-server-names
+	cat /tmp/$i/wgetmap.txt | sed 'p;s/\//-/g' | sed 'N;s/\n/ -O /' | xargs wget -c --no-directories -P '/tmp/download/' --retry-on-host-error --tries=3 --content-disposition --no-check-certificate --timeout=240 --trust-server-names
 
 	mkdir $outputdir/$i
 
