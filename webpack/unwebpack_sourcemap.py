@@ -210,9 +210,9 @@ class SourceMapExtractor(object):
         """Get remote data via http."""
 
         if self.disable_verify_ssl == True:
-            result = requests.get(uri, timeout=120, verify=False)
+            result = requests.get(uri, timeout=180, verify=False)
         else:
-            result = requests.get(uri, timeout=120, verify=False)
+            result = requests.get(uri, timeout=180, verify=False)
 
         # Redirect
         if not uri == result.url:
