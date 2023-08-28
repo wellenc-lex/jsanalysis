@@ -18,7 +18,7 @@ RUN GO111MODULE=on go install github.com/lc/gau@latest && GO111MODULE=on go inst
 
 
 
-RUN pip3 install bs4 && pip3 install requests
+RUN pip3 install bs4 --break-system-packages && pip3 install requests --break-system-packages
 
 RUN chmod +x automation.sh && chmod +x automation/404_js_wayback.sh
 
