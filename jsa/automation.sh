@@ -35,14 +35,14 @@ task(){
 	## only wayback as of now
 	chmod -R 777 $outputdir/$i/
 
-	printf "Fetching URLs for 404 js files from wayback..\n"
-	cat $outputdir/$i/gau.txt | cut -d '?' -f1 | cut -d '#' -f1 | grep '.*\.js$' | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a $outputdir/$i/creds_search.txt >/dev/null
-	cat $outputdir/$i/wget.txt | cut -d '?' -f1 | cut -d '#' -f1 | grep '.*\.js$' | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a $outputdir/$i/creds_search.txt >/dev/null
+	#printf "Fetching URLs for 404 js files from wayback..\n"
+	#cat $outputdir/$i/gau.txt | cut -d '?' -f1 | cut -d '#' -f1 | grep '.*\.js$' | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a $outputdir/$i/creds_search.txt >/dev/null
+	#cat $outputdir/$i/wget.txt | cut -d '?' -f1 | cut -d '#' -f1 | grep '.*\.js$' | sort -u | parallel --gnu -j 2 "/go/jsa/automation/404_js_wayback.sh {}" | tee -a $outputdir/$i/creds_search.txt >/dev/null
 	## save all endpoints to the file for future processing
 
 	## extracting js files from js files
 	printf "Printing deep-level js files..\n"
-	cat $outputdir/$i/wget.txt | parallel --gnu --pipe -j 2 "python3 /go/jsa/automation/js_files_extraction.py | tee -a $outputdir/$i/wget.txt"
+	cat $outputdir/$i/wget.txt | parallel --gnu --pipe -j 2 "timeout 6000 python3 /go/jsa/automation/js_files_extraction.py | tee -a $outputdir/$i/wget.txt"
 
 	printf "wget discovered JS files for local creds scan + webpack + api paths\n"
 	sed 's/$/.map/' $outputdir/$i/wget.txt > $outputdir/$i/wgetmap.txt
